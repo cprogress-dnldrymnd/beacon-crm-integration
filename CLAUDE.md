@@ -108,3 +108,6 @@ Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four ta
   specifically so its selectWoo dropdowns can set `dropdownParent` to it — anchoring to
   the outer fixed overlay instead causes the dropdown to mis-position when the modal
   content scrolls. Keep this anchor if the modal markup changes.
+- The modal's product selectWoo (`#beacon-modal-products`) is destroyed and
+  re-initialized every time the modal opens, rather than initialized once — otherwise
+  its search box silently fails when the field is empty (no products pre-selected).

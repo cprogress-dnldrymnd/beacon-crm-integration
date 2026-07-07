@@ -742,72 +742,44 @@ class Beacon_CRM_Integration
     {
         ?>
         <style>
-            /* Full layout + styling for the selectWoo (select2) multiselect so it renders
-               correctly regardless of whether WooCommerce's base select2 CSS is present. */
-            #beacon-mapping-modal .select2-container { width: 100% !important; display: block; }
-            #beacon-mapping-modal .select2-selection--multiple {
-                height: auto !important;
-                min-height: 34px;
-                border: 1px solid #8c8f94;
-                border-radius: 4px;
-                background: #fff !important;
-                padding: 1px 4px !important;
-                cursor: text;
-                box-sizing: border-box;
+            /* Custom product picker (search field + suggestions) for Linked Products.
+               Built from scratch to avoid the select2/selectWoo positioning issues inside the modal. */
+            #beacon-products-picker { position: relative; }
+            #beacon-products-chips {
+                display: flex; flex-wrap: wrap; gap: 5px;
+                margin-bottom: 6px;
             }
-            #beacon-mapping-modal .select2-container--focus .select2-selection--multiple,
-            #beacon-mapping-modal .select2-container--open .select2-selection--multiple {
-                border-color: #2271b1;
-                box-shadow: 0 0 0 1px #2271b1;
+            #beacon-products-chips:empty { margin-bottom: 0; }
+            .beacon-product-chip {
+                display: inline-flex; align-items: center;
+                background: #2271b1; color: #fff;
+                border-radius: 3px; padding: 3px 8px;
+                font-size: 12px; line-height: 1.4; max-width: 100%;
             }
-            #beacon-mapping-modal .select2-selection--multiple .select2-selection__rendered {
-                display: flex !important;
-                flex-wrap: wrap;
-                align-items: center;
-                list-style: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                width: 100%;
-                line-height: normal;
+            .beacon-product-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .beacon-chip-remove {
+                cursor: pointer; margin-left: 7px; font-weight: bold;
+                color: #cfe3f5; font-size: 14px; line-height: 1;
             }
-            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice {
-                display: inline-flex;
-                align-items: center;
-                background: #2271b1;
-                border: none;
-                color: #fff;
-                border-radius: 3px;
-                padding: 2px 8px;
-                margin: 3px 4px 0 0 !important;
-                font-size: 12px;
-                line-height: 1.5;
-                max-width: 100%;
-                white-space: normal;
+            .beacon-chip-remove:hover { color: #fff; }
+            #beacon-products-search {
+                width: 100%; box-sizing: border-box;
+                padding: 6px 10px; border: 1px solid #8c8f94; border-radius: 4px;
             }
-            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice__remove {
-                color: #fff !important;
-                margin-right: 6px;
-                font-weight: bold;
-                border: none !important;
-                background: transparent !important;
-                order: -1;
+            #beacon-products-search:focus { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; outline: none; }
+            #beacon-products-suggestions {
+                display: none; position: absolute; left: 0; right: 0; z-index: 100;
+                background: #fff; border: 1px solid #2271b1; border-top: none;
+                max-height: 220px; overflow-y: auto;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.12);
             }
-            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice__remove:hover {
-                color: #ffdede !important; background: transparent !important;
+            .beacon-suggestion {
+                padding: 7px 10px; cursor: pointer; font-size: 13px;
+                border-bottom: 1px solid #f0f0f1;
             }
-            #beacon-mapping-modal .select2-search--inline { display: inline-flex; }
-            #beacon-mapping-modal .select2-search--inline .select2-search__field {
-                margin: 4px 0 !important;
-                height: 24px;
-                min-height: 24px;
-                line-height: 24px;
-                border: none !important;
-                background: transparent;
-                box-shadow: none;
-            }
-            #beacon-mapping-modal .select2-selection__placeholder { color: #646970; line-height: 30px; }
-            #beacon-mapping-modal .select2-dropdown { border-color: #2271b1; z-index: 100001; }
-            #beacon-mapping-modal .select2-results__option--highlighted { background-color: #2271b1 !important; }
+            .beacon-suggestion:last-child { border-bottom: none; }
+            .beacon-suggestion.is-active, .beacon-suggestion:hover { background: #2271b1; color: #fff; }
+            .beacon-suggestion-empty { padding: 8px 10px; font-size: 13px; color: #646970; }
         </style>
         <div id="beacon-mapping-modal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6);">
             <div id="beacon-modal-box" style="position:relative; background-color:#fff; margin: 10% auto; padding: 0; border: 1px solid #888; width: 600px; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">
@@ -855,9 +827,15 @@ class Beacon_CRM_Integration
                             </td>
                         </tr>
                         <tr id="beacon-modal-products-row">
-                            <th scope="row" style="padding: 10px 0;"><label for="beacon-modal-products">Linked Products</label></th>
+                            <th scope="row" style="padding: 10px 0; vertical-align: top;"><label for="beacon-products-search">Linked Products</label></th>
                             <td style="padding: 10px 0;">
-                                <select id="beacon-modal-products" multiple="multiple" style="width:100%;">
+                                <div id="beacon-products-picker">
+                                    <div id="beacon-products-chips"></div>
+                                    <input type="text" id="beacon-products-search" placeholder="Search products..." autocomplete="off">
+                                    <div id="beacon-products-suggestions"></div>
+                                </div>
+                                <!-- Hidden data store: holds every product as an option; the custom picker toggles selection here -->
+                                <select id="beacon-modal-products" multiple="multiple" style="display:none;">
                                     <?php foreach ($this->get_wc_products_for_select() as $prod_id => $prod_name): ?>
                                         <option value="<?php echo esc_attr($prod_id); ?>"><?php echo esc_html($prod_name); ?></option>
                                     <?php endforeach; ?>
@@ -884,27 +862,172 @@ class Beacon_CRM_Integration
             var modal = $('#beacon-mapping-modal');
             var $products = $('#beacon-modal-products');
 
-            // Builds a fresh selectWoo (select2) instance each time the modal opens. Re-initialising
-            // while the modal is visible is required so the search field and dropdown positioning
-            // calculate correctly (a single instance created while the modal was hidden misbehaves).
-            function initProductsSelect(idsString) {
-                var ids = (idsString && idsString.length) ? idsString.split(',') : [];
+            /* -------------------------------------------------------------- */
+            /* Custom Linked Products picker (search box + suggestions list)   */
+            /* Built from scratch so it works reliably inside the modal.       */
+            /* -------------------------------------------------------------- */
+            var $productsSearch = $('#beacon-products-search');
+            var $productsChips  = $('#beacon-products-chips');
+            var $productsSug    = $('#beacon-products-suggestions');
 
-                if ($products.hasClass('select2-hidden-accessible')) {
-                    $products.selectWoo('destroy');
+            // Full catalogue, read once from the hidden <select> options.
+            var productCatalog = [];
+            $products.find('option').each(function() {
+                productCatalog.push({ id: String($(this).val()), name: $(this).text() });
+            });
+
+            var selectedProducts = []; // [{id, name}]
+            var currentMatches   = [];
+            var activeIndex      = -1;
+
+            function findProduct(id) {
+                id = String(id);
+                for (var i = 0; i < productCatalog.length; i++) {
+                    if (productCatalog[i].id === id) return productCatalog[i];
                 }
-
-                $products.val(ids);
-
-                if ($.fn.selectWoo) {
-                    $products.selectWoo({
-                        placeholder: 'Select products...',
-                        width: '100%',
-                        dropdownParent: $('#beacon-modal-box'),
-                        closeOnSelect: false
-                    });
-                }
+                return null;
             }
+
+            function isSelected(id) {
+                id = String(id);
+                for (var i = 0; i < selectedProducts.length; i++) {
+                    if (selectedProducts[i].id === id) return true;
+                }
+                return false;
+            }
+
+            // Keeps the hidden <select> in sync so the Save handler can read $products.val().
+            function syncHiddenSelect() {
+                $products.val(selectedProducts.map(function(p) { return p.id; }));
+            }
+
+            function renderChips() {
+                $productsChips.empty();
+                selectedProducts.forEach(function(p) {
+                    var chip = $('<span class="beacon-product-chip"></span>');
+                    chip.append($('<span></span>').text(p.name));
+                    $('<span class="beacon-chip-remove" title="Remove">&times;</span>')
+                        .on('click', function() { removeProduct(p.id); })
+                        .appendTo(chip);
+                    $productsChips.append(chip);
+                });
+            }
+
+            function addProduct(id) {
+                if (isSelected(id)) return;
+                var prod = findProduct(id);
+                if (!prod) return;
+                selectedProducts.push(prod);
+                syncHiddenSelect();
+                renderChips();
+            }
+
+            function removeProduct(id) {
+                id = String(id);
+                selectedProducts = selectedProducts.filter(function(p) { return p.id !== id; });
+                syncHiddenSelect();
+                renderChips();
+                renderSuggestions($productsSearch.val());
+            }
+
+            function hideSuggestions() {
+                $productsSug.hide().empty();
+                currentMatches = [];
+                activeIndex = -1;
+            }
+
+            function renderSuggestions(term) {
+                term = (term || '').trim().toLowerCase();
+                if (term === '') { hideSuggestions(); return; }
+
+                currentMatches = productCatalog.filter(function(p) {
+                    return !isSelected(p.id) && p.name.toLowerCase().indexOf(term) !== -1;
+                }).slice(0, 30);
+
+                activeIndex = -1;
+                $productsSug.empty();
+
+                if (currentMatches.length === 0) {
+                    $productsSug.append('<div class="beacon-suggestion-empty">No matching products</div>').show();
+                    return;
+                }
+
+                currentMatches.forEach(function(p) {
+                    $('<div class="beacon-suggestion"></div>')
+                        .text(p.name)
+                        .on('mousedown', function(e) {
+                            e.preventDefault(); // fire before the input loses focus
+                            addProduct(p.id);
+                            $productsSearch.val('');
+                            hideSuggestions();
+                            $productsSearch.focus();
+                        })
+                        .appendTo($productsSug);
+                });
+                $productsSug.show();
+            }
+
+            // Loads the picker from a comma-separated list of product IDs.
+            function loadProducts(idsString) {
+                var ids = (idsString && idsString.length) ? idsString.split(',') : [];
+                selectedProducts = [];
+                ids.forEach(function(id) {
+                    var prod = findProduct(id);
+                    if (prod) selectedProducts.push(prod);
+                });
+                syncHiddenSelect();
+                renderChips();
+                $productsSearch.val('');
+                hideSuggestions();
+            }
+
+            $productsSearch.on('input', function() { renderSuggestions($(this).val()); });
+            $productsSearch.on('focus', function() {
+                if ($(this).val().trim() !== '') renderSuggestions($(this).val());
+            });
+            $productsSearch.on('keydown', function(e) {
+                if (!$productsSug.is(':visible')) return;
+                var items = $productsSug.find('.beacon-suggestion');
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                } else if (e.key === 'Enter') {
+                    if (activeIndex >= 0 && currentMatches[activeIndex]) {
+                        e.preventDefault();
+                        addProduct(currentMatches[activeIndex].id);
+                        $productsSearch.val('');
+                        hideSuggestions();
+                    }
+                    return;
+                } else if (e.key === 'Escape') {
+                    hideSuggestions();
+                    return;
+                } else {
+                    return;
+                }
+
+                items.removeClass('is-active');
+                if (activeIndex >= 0) {
+                    var el = items.eq(activeIndex).addClass('is-active')[0];
+                    var box = $productsSug[0];
+                    if (el.offsetTop < box.scrollTop) {
+                        box.scrollTop = el.offsetTop;
+                    } else if (el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) {
+                        box.scrollTop = el.offsetTop + el.offsetHeight - box.clientHeight;
+                    }
+                }
+            });
+
+            // Close the suggestion list when clicking outside the picker.
+            $(document).on('mousedown.beaconproducts', function(e) {
+                if (!$(e.target).closest('#beacon-products-picker').length) {
+                    hideSuggestions();
+                }
+            });
 
             // Shows/hides the Linked Products row (only relevant for Live Courses)
             function toggleProductsRow(source) {
@@ -941,12 +1064,10 @@ class Beacon_CRM_Integration
                 // Handle Linked Products (Live Courses only)
                 var isLive = btn.attr('data-source') === 'live';
                 toggleProductsRow(btn.attr('data-source'));
+                loadProducts(isLive ? btn.attr('data-linked-products') : '');
 
                 resetModalState();
                 modal.fadeIn(200);
-
-                // Initialise the products select after the modal is visible so it measures correctly
-                initProductsSelect(isLive ? btn.attr('data-linked-products') : '');
             });
 
             // Open Modal for New Live Course
@@ -965,12 +1086,10 @@ class Beacon_CRM_Integration
 
                 // Fresh products selector for a brand new Live Course
                 toggleProductsRow('live');
+                loadProducts('');
 
                 resetModalState();
                 modal.fadeIn(200);
-
-                // Initialise the products select after the modal is visible so it measures correctly
-                initProductsSelect('');
             });
 
             function resetModalState() {
