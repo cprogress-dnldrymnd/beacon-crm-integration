@@ -34,11 +34,11 @@ separately; the log-related methods here only hook into columns/filters/meta box
      multiselect (styled to match native wp-admin product-data fields) directly to
      the product's meta.
    - Course Mapping modal → the same Live Course add/edit modal (`ajax_save_course_mapping`)
-     includes a product multiselect; on save it calls `sync_live_course_products()` to
+     includes a "Linked Products" picker; on save it calls `sync_live_course_products()` to
      add/remove `_beacon_live_courses` on the affected products so both sides agree.
    - `get_live_course_product_map()` builds the reverse lookup (course ID → product IDs)
      via a direct `$wpdb` query, used to prefill both the mapping-table UI and the
-     modal's product multiselect. `ajax_delete_live_course()` does the same cleanup
+     modal's product picker. `ajax_delete_live_course()` does the same cleanup
      scan when a Live Course is deleted.
 
 Both course types are managed from a single admin table (Settings > Beacon CRM > Course
@@ -84,10 +84,12 @@ Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
 Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four tabs
 (`?tab=api|mapping|test|bulk`), all rendered by `render_settings_page()`:
 - **API Configuration** — credentials form.
-- **Course Mapping** — combined LearnDash + Live Course table with AJAX add/edit/delete
-  modal (selectWoo/Select2 enhanced multiselects, enqueued only on this admin page via
-  `enqueue_admin_scripts`).
-- **Test Integration** — search-and-sync a single WooCommerce order.
+- **Course Mapping** — combined LearnDash + Live Course table with an AJAX add/edit/delete
+  modal (`render_ajax_mapping_modal()`). Its "Linked Products" field is a custom
+  search-box-plus-suggestions picker (chips + typeahead, hand-built in jQuery) rather than
+  select2/selectWoo — see gotchas below.
+- **Test Integration** — search-and-sync a single WooCommerce order; its order-search field
+  uses selectWoo/select2 (enqueued only on this admin page via `enqueue_admin_scripts`).
 - **Bulk Date Sync** — client-driven chunked processing of a date range of orders, with
   a progress bar.
 
@@ -104,10 +106,19 @@ Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four ta
   pattern (`check_ajax_referer`) when adding new endpoints, and gate on
   `current_user_can('manage_options')`.
 - Currency is hardcoded to `GBP` in `handle_payment_complete()`.
-- The mapping modal's inner box has `id="beacon-modal-box"` and `position:relative`
-  specifically so its selectWoo dropdowns can set `dropdownParent` to it — anchoring to
-  the outer fixed overlay instead causes the dropdown to mis-position when the modal
-  content scrolls. Keep this anchor if the modal markup changes.
-- The modal's product selectWoo (`#beacon-modal-products`) is destroyed and
-  re-initialized every time the modal opens, rather than initialized once — otherwise
-  its search box silently fails when the field is empty (no products pre-selected).
+- The mapping modal's "Linked Products" field is a custom search-box + suggestions-list
+  picker (`#beacon-products-search` / `#beacon-products-suggestions` / chips in
+  `#beacon-products-chips`), built from scratch to replace an earlier select2/selectWoo
+  multiselect that had positioning and empty-search bugs inside the modal. The full
+  product catalogue is read once from a hidden `<select id="beacon-modal-products">`
+  (still present so the existing save handler can read `.val()` unchanged); the picker
+  keeps that hidden select in sync as chips are added/removed via `syncHiddenSelect()`.
+  When touching this UI, keep the hidden `<select>` in sync rather than reading
+  `selectedProducts` directly on save.
+- The mapping modal's inner box still has `id="beacon-modal-box"` and `position:relative`
+  — the custom product-suggestions dropdown (`position:absolute`) relies on this
+  ancestor for correct positioning when the modal content scrolls. Keep this anchor if
+  the modal markup changes.
+- The WooCommerce product editor's own "Linked Live Courses" field
+  (`render_wc_product_fields`) is unrelated to the modal picker rewrite — it still uses
+  WooCommerce's native `wc-enhanced-select` (WooCommerce's own select2 wrapper).
