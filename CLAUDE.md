@@ -28,9 +28,18 @@ separately; the log-related methods here only hook into columns/filters/meta box
 2. **Live Courses** — custom, non-LearnDash courses stored as an array in the
    `beacon_crm_live_courses` option (keyed by an admin-assigned integer ID). These are
    linked to WooCommerce products via `_beacon_live_courses` product post meta
-   (a list of live-course IDs). The product-editor multiselect for this lives in
-   `render_wc_product_fields`. `get_live_course_product_map()` builds the reverse lookup
-   (course ID → product IDs) via a direct `$wpdb` query for the mapping-table UI.
+   (a list of live-course IDs). The linkage is editable from **either** side and kept
+   in sync both ways:
+   - Product editor → `render_wc_product_fields` adds a "Linked Live Courses"
+     multiselect (styled to match native wp-admin product-data fields) directly to
+     the product's meta.
+   - Course Mapping modal → the same Live Course add/edit modal (`ajax_save_course_mapping`)
+     includes a product multiselect; on save it calls `sync_live_course_products()` to
+     add/remove `_beacon_live_courses` on the affected products so both sides agree.
+   - `get_live_course_product_map()` builds the reverse lookup (course ID → product IDs)
+     via a direct `$wpdb` query, used to prefill both the mapping-table UI and the
+     modal's product multiselect. `ajax_delete_live_course()` does the same cleanup
+     scan when a Live Course is deleted.
 
 Both course types are managed from a single admin table (Settings > Beacon CRM > Course
 Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
