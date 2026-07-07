@@ -741,6 +741,46 @@ class Beacon_CRM_Integration
     private function render_ajax_mapping_modal()
     {
         ?>
+        <style>
+            /* Style the selectWoo (select2) multiselect to match WP admin form fields */
+            #beacon-mapping-modal .select2-container { width: 100% !important; }
+            #beacon-mapping-modal .select2-selection--multiple {
+                min-height: 34px;
+                border: 1px solid #8c8f94;
+                border-radius: 4px;
+                background: #fff;
+                padding: 2px 4px;
+                line-height: 1.4;
+            }
+            #beacon-mapping-modal .select2-container--focus .select2-selection--multiple,
+            #beacon-mapping-modal .select2-container--open .select2-selection--multiple {
+                border-color: #2271b1;
+                box-shadow: 0 0 0 1px #2271b1;
+            }
+            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice {
+                background: #2271b1;
+                border: none;
+                color: #fff;
+                border-radius: 3px;
+                padding: 2px 8px;
+                margin: 4px 4px 0 0;
+                font-size: 12px;
+                line-height: 1.6;
+            }
+            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice__remove {
+                color: #fff;
+                margin-right: 5px;
+                font-weight: bold;
+                border: none;
+                background: transparent;
+            }
+            #beacon-mapping-modal .select2-selection--multiple .select2-selection__choice__remove:hover {
+                color: #ffd; background: transparent;
+            }
+            #beacon-mapping-modal .select2-search--inline .select2-search__field { margin-top: 6px; height: 22px; }
+            #beacon-mapping-modal .select2-dropdown { border-color: #2271b1; z-index: 100000; }
+            #beacon-mapping-modal .select2-results__option--highlighted { background-color: #2271b1 !important; }
+        </style>
         <div id="beacon-mapping-modal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6);">
             <div style="background-color:#fff; margin: 10% auto; padding: 0; border: 1px solid #888; width: 450px; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">
                 
