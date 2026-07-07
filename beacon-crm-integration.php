@@ -810,7 +810,7 @@ class Beacon_CRM_Integration
             #beacon-mapping-modal .select2-results__option--highlighted { background-color: #2271b1 !important; }
         </style>
         <div id="beacon-mapping-modal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6);">
-            <div style="background-color:#fff; margin: 10% auto; padding: 0; border: 1px solid #888; width: 450px; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">
+            <div id="beacon-modal-box" style="position:relative; background-color:#fff; margin: 10% auto; padding: 0; border: 1px solid #888; width: 600px; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.3);">
                 
                 <div style="padding: 15px 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; background: #f6f7f7;">
                     <h3 style="margin:0; font-size: 16px;" id="beacon-modal-header">Edit Course Mapping</h3>
@@ -889,7 +889,7 @@ class Beacon_CRM_Integration
                 $products.selectWoo({
                     placeholder: 'Select products...',
                     width: '100%',
-                    dropdownParent: modal,
+                    dropdownParent: $('#beacon-modal-box'),
                     closeOnSelect: false
                 });
             }
