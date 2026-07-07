@@ -104,3 +104,7 @@ Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four ta
   pattern (`check_ajax_referer`) when adding new endpoints, and gate on
   `current_user_can('manage_options')`.
 - Currency is hardcoded to `GBP` in `handle_payment_complete()`.
+- The mapping modal's inner box has `id="beacon-modal-box"` and `position:relative`
+  specifically so its selectWoo dropdowns can set `dropdownParent` to it — anchoring to
+  the outer fixed overlay instead causes the dropdown to mis-position when the modal
+  content scrolls. Keep this anchor if the modal markup changes.

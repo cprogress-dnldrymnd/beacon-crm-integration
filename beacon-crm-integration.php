@@ -884,20 +884,26 @@ class Beacon_CRM_Integration
             var modal = $('#beacon-mapping-modal');
             var $products = $('#beacon-modal-products');
 
-            // Initialise the enhanced products multiselect (scoped to the modal so the dropdown stays visible)
-            if ($.fn.selectWoo) {
-                $products.selectWoo({
-                    placeholder: 'Select products...',
-                    width: '100%',
-                    dropdownParent: $('#beacon-modal-box'),
-                    closeOnSelect: false
-                });
-            }
-
-            // Sets the products multiselect from a comma-separated list of product IDs
-            function setLinkedProducts(idsString) {
+            // Builds a fresh selectWoo (select2) instance each time the modal opens. Re-initialising
+            // while the modal is visible is required so the search field and dropdown positioning
+            // calculate correctly (a single instance created while the modal was hidden misbehaves).
+            function initProductsSelect(idsString) {
                 var ids = (idsString && idsString.length) ? idsString.split(',') : [];
-                $products.val(ids).trigger('change');
+
+                if ($products.hasClass('select2-hidden-accessible')) {
+                    $products.selectWoo('destroy');
+                }
+
+                $products.val(ids);
+
+                if ($.fn.selectWoo) {
+                    $products.selectWoo({
+                        placeholder: 'Select products...',
+                        width: '100%',
+                        dropdownParent: $('#beacon-modal-box'),
+                        closeOnSelect: false
+                    });
+                }
             }
 
             // Shows/hides the Linked Products row (only relevant for Live Courses)
@@ -933,11 +939,14 @@ class Beacon_CRM_Integration
                 }
 
                 // Handle Linked Products (Live Courses only)
+                var isLive = btn.attr('data-source') === 'live';
                 toggleProductsRow(btn.attr('data-source'));
-                setLinkedProducts(btn.attr('data-linked-products'));
 
                 resetModalState();
                 modal.fadeIn(200);
+
+                // Initialise the products select after the modal is visible so it measures correctly
+                initProductsSelect(isLive ? btn.attr('data-linked-products') : '');
             });
 
             // Open Modal for New Live Course
@@ -956,10 +965,12 @@ class Beacon_CRM_Integration
 
                 // Fresh products selector for a brand new Live Course
                 toggleProductsRow('live');
-                setLinkedProducts('');
 
                 resetModalState();
                 modal.fadeIn(200);
+
+                // Initialise the products select after the modal is visible so it measures correctly
+                initProductsSelect('');
             });
 
             function resetModalState() {
