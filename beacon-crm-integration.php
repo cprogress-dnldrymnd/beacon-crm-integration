@@ -1588,11 +1588,42 @@ class Beacon_CRM_Integration
     /* CORE BUSINESS LOGIC                                                        */
     /* -------------------------------------------------------------------------- */
 
+    private function order_meta_is_true($order, $key)
+    {
+        $value = $order->get_meta($key, true);
+        if (is_array($value)) $value = reset($value);
+        if (is_bool($value)) return $value;
+        $value = strtolower(trim((string) $value));
+        return in_array($value, ['1', 'yes', 'true', 'on', 'checked'], true);
+    }
+
+    private function get_beacon_interests_from_order($order)
+    {
+        $interests = [];
+
+        $training_opted_in = function_exists('orca_get_training_opt_in_value')
+            ? orca_get_training_opt_in_value($order) === 'Yes'
+            : $this->order_meta_is_true($order, '_wc_other/orca-learn/training-opt-in');
+
+        if ($training_opted_in) {
+            $interests = array_merge($interests, ['Training courses', 'Membership updates', 'Volunteer updates']);
+        }
+
+        $comms_opted_in = function_exists('orca_get_communications_opt_in_value')
+            ? orca_get_communications_opt_in_value($order) === 'Yes'
+            : $this->order_meta_is_true($order, '_wc_other/orca-learn/communications-opt-in');
+
+        if ($comms_opted_in) {
+            $interests = array_merge($interests, ['Newsletter', 'Campaigns', 'Special events and appeals']);
+        }
+
+        return array_values(array_unique($interests));
+    }
+
     private function get_or_create_person($order)
     {
         $user_id     = $order->get_user_id();
         $existing_id = get_user_meta($user_id, 'beacon_user_id', true);
-        if (! empty($existing_id)) return $existing_id;
 
         $first_name   = $order->get_billing_first_name();
         $last_name    = $order->get_billing_last_name();
@@ -1604,10 +1635,10 @@ class Beacon_CRM_Integration
         $payload = [
             "primary_field_key" => "emails",
             "entity"            => [
-                "emails"  => [["email" => $email, "is_primary" => true]],
-                "name"    => ["full" => "$first_name $last_name", "last" => $last_name, "first" => $first_name],
-                'type'    => ['Supporter'],
-                "address" => [[
+                "emails"    => [["email" => $email, "is_primary" => true]],
+                "name"      => ["full" => "$first_name $last_name", "last" => $last_name, "first" => $first_name],
+                'type'      => ['Supporter'],
+                "address"   => [[
                     "address_line_one" => $order->get_billing_address_1(),
                     "address_line_two" => $order->get_billing_address_2(),
                     "city"             => $order->get_billing_city(),
@@ -1615,7 +1646,8 @@ class Beacon_CRM_Integration
                     "postal_code"      => $order->get_billing_postcode(),
                     "country"          => $country_name,
                 ]],
-                "notes"   => 'Updated via woocommerce checkout'
+                "interests" => $this->get_beacon_interests_from_order($order),
+                "notes"     => 'Updated via woocommerce checkout'
             ],
         ];
 
@@ -1649,7 +1681,7 @@ class Beacon_CRM_Integration
         }
 
         $this->log_to_db("[Person Sync Failed] Order " . $order->get_id(), ['type' => 'person', 'api_url' => $resource, 'args' => $payload, 'return' => $response]);
-        return false;
+        return $existing_id ?: false;
     }
 
     private function get_or_create_person_from_user($user_id)

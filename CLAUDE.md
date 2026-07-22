@@ -19,6 +19,11 @@ Also assumes a custom post type `beaconcrmlogs` exists for the CRM log entries �
 **not registered in this file** (look for it in another plugin/mu-plugin, or register it
 separately; the log-related methods here only hook into columns/filters/meta boxes for it).
 
+Optionally integrates with **Orca Learn** (checkout opt-in checkboxes) if its
+`orca_get_training_opt_in_value()` / `orca_get_communications_opt_in_value()` functions are
+present, falling back to reading its order meta keys directly otherwise — see
+`get_beacon_interests_from_order()`.
+
 ## Architecture
 
 ### Two kinds of "courses" synced to Beacon CRM
@@ -80,11 +85,21 @@ Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
 - `send_request($resource, $body, $order_id, $method)` — thin wrapper over
   `wp_remote_request`, PUT by default (Beacon's API pattern is upsert-via-PUT).
 - Entities pushed: `entity/person/upsert`, `entity/payment/upsert`, `entity/c_training/upsert`.
-- Person lookup is cached per WP user via `beacon_user_id` user meta (created once, then
-  reused — `get_or_create_person()` for WooCommerce orders, `get_or_create_person_from_user()`
-  for the LearnDash-only enrollment path where no order exists).
+- Person lookup is cached per WP user via `beacon_user_id` user meta, but
+  `get_or_create_person()` always re-upserts on every order (no short-circuit on a cached
+  ID) so billing details/interests stay current; `get_or_create_person_from_user()` is the
+  equivalent for the LearnDash-only enrollment path where no order exists. If the upsert
+  request fails, `get_or_create_person()` falls back to returning the existing cached ID
+  (if any) rather than `false`, so downstream Payment/Training sync can still proceed.
 - Notable retry behavior in `get_or_create_person()`: if Beacon rejects the request due to
   `phone_numbers`, it retries once with the phone number stripped.
+- `get_beacon_interests_from_order()` derives a Beacon `interests` list from order opt-in
+  flags: training opt-in → `Training courses`/`Membership updates`/`Volunteer updates`,
+  communications opt-in → `Newsletter`/`Campaigns`/`Special events and appeals`. It prefers
+  `orca_get_training_opt_in_value()`/`orca_get_communications_opt_in_value()` (from the
+  Orca Learn plugin) if those functions exist, falling back to reading the raw
+  `_wc_other/orca-learn/training-opt-in` and `-communications-opt-in` order meta keys via
+  `order_meta_is_true()` otherwise.
 - Every API call is logged via `log_to_db()` as a `beaconcrmlogs` post, with `type`
   (person/payment/training), `api_url`, `args`, `return`, and a derived `status`
   (success/error) — viewable in the WP admin as a custom post list with type/status
@@ -110,7 +125,7 @@ lives at `admin.php?page=beacon-crm-settings` — not under Settings anymore), w
 
 ## Conventions / gotchas
 
-- All business logic, admin rendering, and inline JS/CSS live in this one ~1950-line file
+- All business logic, admin rendering, and inline JS/CSS live in this one ~2000-line file
   — there's no asset pipeline, so JS is embedded in PHP via `<script>` blocks per tab/modal.
 - Admin redirects (e.g. `handle_test_sync_submission()`) build their `add_query_arg()`
   base with `admin_url('admin.php')`, matching the top-level menu — not
