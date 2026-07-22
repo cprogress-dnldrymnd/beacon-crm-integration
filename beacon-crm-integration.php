@@ -837,7 +837,7 @@ class Beacon_CRM_Integration
                browsers, which let long labels push past the modal instead of wrapping. */
             .beacon-product-chip {
                 display: inline-block; vertical-align: middle;
-                max-width: 100%; box-sizing: border-box; overflow: hidden;
+                max-width: 355px; box-sizing: border-box; overflow: hidden;
                 background: #2271b1; color: #fff;
                 border-radius: 3px; padding: 3px 8px;
                 font-size: 12px; line-height: 1.4; margin: 0 5px 5px 0;
