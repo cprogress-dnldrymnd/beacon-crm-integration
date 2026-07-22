@@ -845,7 +845,7 @@ class Beacon_CRM_Integration
             .beacon-product-chip span {
                 display: inline-block; vertical-align: middle;
                 max-width: calc(100% - 16px);
-                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                overflow: hidden; 
             }
             .beacon-chip-remove {
                 display: inline-block; vertical-align: middle;
