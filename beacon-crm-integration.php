@@ -837,9 +837,9 @@ class Beacon_CRM_Integration
                 display: inline-flex; align-items: center;
                 background: #2271b1; color: #fff;
                 border-radius: 3px; padding: 3px 8px;
-                font-size: 12px; line-height: 1.4; max-width: 100%;
+                font-size: 12px; line-height: 1.4; max-width: 100%; min-width: 0;
             }
-            .beacon-product-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .beacon-product-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
             .beacon-chip-remove {
                 cursor: pointer; margin-left: 7px; font-weight: bold;
                 color: #cfe3f5; font-size: 14px; line-height: 1;

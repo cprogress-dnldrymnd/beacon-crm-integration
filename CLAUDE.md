@@ -109,10 +109,10 @@ Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
 ## Admin UI
 
 Top-level admin menu **Beacon CRM** (`add_menu_page`, slug `beacon-crm-settings`, page
-lives at `admin.php?page=beacon-crm-settings` — not under Settings anymore), with a
-"Settings" submenu (same page) and a "Course Mapping" submenu that deep-links to
-`&tab=mapping`. Four tabs total (`?tab=api|mapping|test|bulk`), all rendered by
-`render_settings_page()`:
+lives at `admin.php?page=beacon-crm-settings` — not under Settings anymore), with one
+sidebar submenu per tab (API Configuration, Course Mapping, Test Integration, Bulk Date
+Sync), each deep-linking via `&tab=`. Four tabs total (`?tab=api|mapping|test|bulk`), all
+rendered by `render_settings_page()`:
 - **API Configuration** — credentials form.
 - **Course Mapping** — combined LearnDash + Live Course table with an AJAX add/edit/delete
   modal (`render_ajax_mapping_modal()`). Its "Linked Products" field is a custom
