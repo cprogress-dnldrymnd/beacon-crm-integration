@@ -27,19 +27,31 @@ separately; the log-related methods here only hook into columns/filters/meta box
    on the LearnDash course edit screen (metabox added via `register_meta_boxes`).
 2. **Live Courses** — custom, non-LearnDash courses stored as an array in the
    `beacon_crm_live_courses` option (keyed by an admin-assigned integer ID). These are
-   linked to WooCommerce products via `_beacon_live_courses` product post meta
-   (a list of live-course IDs). The linkage is editable from **either** side and kept
-   in sync both ways:
+   linked to WooCommerce products (and, optionally, individual product variations) via
+   `_beacon_live_courses` post meta (a list of live-course IDs). The linkage is editable
+   from **either** side and kept in sync both ways:
    - Product editor → `render_wc_product_fields` adds a "Linked Live Courses"
      multiselect (styled to match native wp-admin product-data fields) directly to
      the product's meta.
+   - Variable product variations → `render_variation_live_course_fields`
+     (`woocommerce_product_after_variable_attributes`) adds the same multiselect per
+     variation, saved by `save_variation_live_course_fields`
+     (`woocommerce_save_product_variation`) onto the variation post's own
+     `_beacon_live_courses` meta. A variation's mapping **overrides** its parent
+     product's; an empty/missing variation mapping falls back to the parent's at sync
+     time (`sync_live_courses_from_order()`). The picker is only rendered if at least
+     one Live Course exists.
    - Course Mapping modal → the same Live Course add/edit modal (`ajax_save_course_mapping`)
      includes a "Linked Products" picker; on save it calls `sync_live_course_products()` to
-     add/remove `_beacon_live_courses` on the affected products so both sides agree.
-   - `get_live_course_product_map()` builds the reverse lookup (course ID → product IDs)
-     via a direct `$wpdb` query, used to prefill both the mapping-table UI and the
-     modal's product picker. `ajax_delete_live_course()` does the same cleanup
-     scan when a Live Course is deleted.
+     add/remove `_beacon_live_courses` on the affected post IDs so both sides agree.
+     `get_wc_products_for_select()` lists both parent products and, for variable products,
+     each variation (labelled with its formatted attributes, e.g. "Product – Size: L"),
+     so this picker can link/unlink variations directly too — `sync_live_course_products()`
+     just calls `update_post_meta()` on whatever post ID was selected.
+   - `get_live_course_product_map()` builds the reverse lookup (course ID → product/variation
+     IDs) via a direct `$wpdb` query against both `product` and `product_variation` post
+     types, used to prefill both the mapping-table UI and the modal's product picker.
+     `ajax_delete_live_course()` does the same cleanup scan when a Live Course is deleted.
 
 Both course types are managed from a single admin table (Settings > Beacon CRM > Course
 Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
@@ -81,8 +93,11 @@ Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
 
 ## Admin UI
 
-Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four tabs
-(`?tab=api|mapping|test|bulk`), all rendered by `render_settings_page()`:
+Top-level admin menu **Beacon CRM** (`add_menu_page`, slug `beacon-crm-settings`, page
+lives at `admin.php?page=beacon-crm-settings` — not under Settings anymore), with a
+"Settings" submenu (same page) and a "Course Mapping" submenu that deep-links to
+`&tab=mapping`. Four tabs total (`?tab=api|mapping|test|bulk`), all rendered by
+`render_settings_page()`:
 - **API Configuration** — credentials form.
 - **Course Mapping** — combined LearnDash + Live Course table with an AJAX add/edit/delete
   modal (`render_ajax_mapping_modal()`). Its "Linked Products" field is a custom
@@ -95,8 +110,11 @@ Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four ta
 
 ## Conventions / gotchas
 
-- All business logic, admin rendering, and inline JS/CSS live in this one ~1700-line file
+- All business logic, admin rendering, and inline JS/CSS live in this one ~1950-line file
   — there's no asset pipeline, so JS is embedded in PHP via `<script>` blocks per tab/modal.
+- Admin redirects (e.g. `handle_test_sync_submission()`) build their `add_query_arg()`
+  base with `admin_url('admin.php')`, matching the top-level menu — not
+  `options-general.php`, which is only correct for pages registered under Settings.
 - Live Course IDs are plain integers chosen by the admin at creation time and must not
   collide with a LearnDash course post ID (`ajax_save_course_mapping` checks
   `get_post_type($custom_id) === 'sfwd-courses'` to prevent this) or an existing live
@@ -121,4 +139,10 @@ Single settings page: **Settings > Beacon CRM** (`beacon-crm-settings`), four ta
   the modal markup changes.
 - The WooCommerce product editor's own "Linked Live Courses" field
   (`render_wc_product_fields`) is unrelated to the modal picker rewrite — it still uses
-  WooCommerce's native `wc-enhanced-select` (WooCommerce's own select2 wrapper).
+  WooCommerce's native `wc-enhanced-select` (WooCommerce's own select2 wrapper). Same for
+  the per-variation version of this field (`render_variation_live_course_fields`).
+- `sync_live_courses_from_order()` resolves Live Courses per order line item by checking
+  the variation's own `_beacon_live_courses` meta first (`$item->get_variation_id()`) and
+  only falling back to the parent product's meta if the variation has none set — a
+  variation with an explicit empty selection is *not* currently distinguishable from one
+  that was never mapped, so both fall back to the parent.

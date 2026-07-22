@@ -80,6 +80,10 @@ class Beacon_CRM_Integration
         add_action('woocommerce_product_options_general_product_data', [$this, 'render_wc_product_fields']);
         add_action('woocommerce_process_product_meta', [$this, 'save_wc_product_fields']);
 
+        // WooCommerce Variation Fields (Per-Variation Live Course Mapping)
+        add_action('woocommerce_product_after_variable_attributes', [$this, 'render_variation_live_course_fields'], 10, 3);
+        add_action('woocommerce_save_product_variation', [$this, 'save_variation_live_course_fields'], 10, 2);
+
         // User Admin Columns
         add_filter('manage_users_columns', [$this, 'add_beacon_id_user_column']);
         add_filter('manage_users_custom_column', [$this, 'fill_beacon_id_user_column'], 10, 3);
@@ -155,6 +159,65 @@ class Beacon_CRM_Integration
     }
 
     /**
+     * Renders a per-variation "Linked Live Courses" multiselect inside the
+     * WooCommerce variation panel. A variation's own selection overrides the
+     * parent product's; leaving it empty falls back to the parent's mapping
+     * at sync time (see sync_live_courses_from_order()).
+     *
+     * @param int     $loop           Variation loop index (used for the field name).
+     * @param array   $variation_data
+     * @param WP_Post $variation      The variation post object.
+     */
+    public function render_variation_live_course_fields($loop, $variation_data, $variation)
+    {
+        $live_courses = get_option('beacon_crm_live_courses', []);
+
+        // If there are no live courses, do not clutter the UI
+        if (empty($live_courses)) {
+            return;
+        }
+
+        $current_selection = get_post_meta($variation->ID, '_beacon_live_courses', true);
+        if (!is_array($current_selection)) {
+            $current_selection = [];
+        }
+
+        ?>
+        <div class="options_group form-row form-row-full beacon_crm_variation_live_fields">
+            <p class="form-field">
+                <label for="_beacon_live_courses_variation_<?php echo esc_attr($loop); ?>">Linked Live Courses</label>
+                <select id="_beacon_live_courses_variation_<?php echo esc_attr($loop); ?>" name="_beacon_live_courses_variation[<?php echo esc_attr($loop); ?>][]" class="wc-enhanced-select" multiple="multiple" style="width: 50%;">
+                    <?php foreach ($live_courses as $lc_id => $lc_data): ?>
+                        <option value="<?php echo esc_attr($lc_id); ?>" <?php echo in_array($lc_id, $current_selection) ? 'selected="selected"' : ''; ?>>
+                            <?php echo esc_html($lc_data['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="description">Leave empty to inherit the parent product's linked Live Courses.</span>
+            </p>
+        </div>
+        <?php
+    }
+
+    /**
+     * Saves the per-variation Live Course selections when a WooCommerce
+     * variation is updated. An empty selection clears the meta so the
+     * variation inherits the parent product's mapping.
+     *
+     * @param int $variation_id Variation Post ID.
+     * @param int $i            Variation loop index (matches the posted field name).
+     */
+    public function save_variation_live_course_fields($variation_id, $i)
+    {
+        if (isset($_POST['_beacon_live_courses_variation'][$i]) && is_array($_POST['_beacon_live_courses_variation'][$i])) {
+            $sanitized = array_map('sanitize_text_field', wp_unslash($_POST['_beacon_live_courses_variation'][$i]));
+            update_post_meta($variation_id, '_beacon_live_courses', $sanitized);
+        } else {
+            delete_post_meta($variation_id, '_beacon_live_courses');
+        }
+    }
+
+    /**
      * Returns a simple map of [Product ID => "Product Name (#ID)"] for use in
      * the Live Course modal's multiselect.
      *
@@ -173,6 +236,18 @@ class Beacon_CRM_Integration
 
         foreach ($products as $product) {
             $options[$product->get_id()] = $product->get_name() . ' (#' . $product->get_id() . ')';
+
+            if ($product->is_type('variable')) {
+                foreach ($product->get_children() as $variation_id) {
+                    $variation = wc_get_product($variation_id);
+                    if (! $variation) {
+                        continue;
+                    }
+                    $attrs = wc_get_formatted_variation($variation, true);
+                    $label = $product->get_name() . ($attrs ? ' – ' . $attrs : '') . ' (#' . $variation_id . ')';
+                    $options[$variation_id] = $label;
+                }
+            }
         }
 
         return $options;
@@ -189,7 +264,11 @@ class Beacon_CRM_Integration
         global $wpdb;
 
         $rows = $wpdb->get_results(
-            "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_beacon_live_courses'"
+            "SELECT pm.post_id, pm.meta_value
+               FROM {$wpdb->postmeta} pm
+               INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+              WHERE pm.meta_key = '_beacon_live_courses'
+                AND p.post_type IN ('product','product_variation')"
         );
 
         $map = [];
@@ -358,7 +437,9 @@ class Beacon_CRM_Integration
 
     public function add_admin_menu()
     {
-        add_options_page('Beacon CRM Settings', 'Beacon CRM', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page']);
+        add_menu_page('Beacon CRM', 'Beacon CRM', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page'], 'dashicons-networking', 58);
+        add_submenu_page('beacon-crm-settings', 'Beacon CRM Settings', 'Settings', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page']);
+        add_submenu_page('beacon-crm-settings', 'Course Mapping', 'Course Mapping', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=mapping');
     }
 
     public function register_settings()
@@ -1435,12 +1516,12 @@ class Beacon_CRM_Integration
         $order    = wc_get_order($order_id);
 
         if (! $order) {
-            wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'invalid_order', 'tested_order' => $order_id], admin_url('options-general.php')));
+            wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'invalid_order', 'tested_order' => $order_id], admin_url('admin.php')));
             exit;
         }
 
         if (! $this->get_credentials()) {
-            wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'missing_auth'], admin_url('options-general.php')));
+            wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'missing_auth'], admin_url('admin.php')));
             exit;
         }
 
@@ -1448,7 +1529,7 @@ class Beacon_CRM_Integration
         $this->handle_payment_complete($order_id);
         $this->sync_live_courses_from_order($order_id);
 
-        wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'success', 'tested_order' => $order_id], admin_url('options-general.php')));
+        wp_redirect(add_query_arg(['page' => 'beacon-crm-settings', 'beacon_test_status' => 'success', 'tested_order' => $order_id], admin_url('admin.php')));
         exit;
     }
 
@@ -1710,10 +1791,17 @@ class Beacon_CRM_Integration
         $resource = 'entity/c_training/upsert';
 
         foreach ($order->get_items() as $item) {
-            $product_id = $item->get_product_id();
-            
-            // Fetch mapped Live Courses added in WC Product Editor
-            $mapped_live_courses = get_post_meta($product_id, '_beacon_live_courses', true);
+            $variation_id = $item->get_variation_id();
+            $product_id   = $item->get_product_id();
+            $source_id    = $variation_id ?: $product_id;
+
+            // Fetch mapped Live Courses added in WC Product/Variation Editor
+            $mapped_live_courses = get_post_meta($source_id, '_beacon_live_courses', true);
+
+            // Variation overrides parent; a variation with no mapping inherits the parent's.
+            if ($variation_id && (empty($mapped_live_courses) || !is_array($mapped_live_courses))) {
+                $mapped_live_courses = get_post_meta($product_id, '_beacon_live_courses', true);
+            }
 
             if (!empty($mapped_live_courses) && is_array($mapped_live_courses)) {
                 foreach ($mapped_live_courses as $lc_id) {
