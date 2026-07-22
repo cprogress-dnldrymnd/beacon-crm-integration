@@ -442,6 +442,11 @@ class Beacon_CRM_Integration
         add_submenu_page('beacon-crm-settings', 'Course Mapping', 'Course Mapping', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=mapping');
         add_submenu_page('beacon-crm-settings', 'Test Integration', 'Test Integration', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=test');
         add_submenu_page('beacon-crm-settings', 'Bulk Date Sync', 'Bulk Date Sync', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=bulk');
+
+        if (post_type_exists('beaconcrmlogs')) {
+            remove_menu_page('edit.php?post_type=beaconcrmlogs');
+            add_submenu_page('beacon-crm-settings', 'Beacon CRM Logs', 'Logs', 'manage_options', 'edit.php?post_type=beaconcrmlogs');
+        }
     }
 
     public function register_settings()

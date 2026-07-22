@@ -125,6 +125,11 @@ rendered by `render_settings_page()`:
 - **Bulk Date Sync** — client-driven chunked processing of a date range of orders, with
   a progress bar.
 
+If the `beaconcrmlogs` CPT is registered (by another plugin/mu-plugin), `add_menu_pages()`
+also relocates its native post-list menu under **Beacon CRM** as a "Logs" submenu
+(`remove_menu_page('edit.php?post_type=beaconcrmlogs')` + re-added via `add_submenu_page`),
+guarded by `post_type_exists('beaconcrmlogs')` so it's skipped if that CPT isn't present.
+
 ## Conventions / gotchas
 
 - All business logic, admin rendering, and inline JS/CSS live in this one ~2000-line file
