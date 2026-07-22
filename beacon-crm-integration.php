@@ -827,20 +827,28 @@ class Beacon_CRM_Integration
         <style>
             /* Custom product picker (search field + suggestions) for Linked Products.
                Built from scratch to avoid the select2/selectWoo positioning issues inside the modal. */
-            #beacon-products-picker { position: relative; }
+            #beacon-products-picker { position: relative; max-width: 100%; }
             #beacon-products-chips {
-                display: flex; flex-wrap: wrap; gap: 5px;
                 margin-bottom: 6px;
             }
             #beacon-products-chips:empty { margin-bottom: 0; }
+            /* Plain inline-block "tag" chips (not flex): flex items inside an auto-layout
+               table cell don't reliably shrink below their un-wrapped content width across
+               browsers, which let long labels push past the modal instead of wrapping. */
             .beacon-product-chip {
-                display: inline-flex; align-items: center;
+                display: inline-block; vertical-align: middle;
+                max-width: 100%; box-sizing: border-box; overflow: hidden;
                 background: #2271b1; color: #fff;
                 border-radius: 3px; padding: 3px 8px;
-                font-size: 12px; line-height: 1.4; max-width: 100%; min-width: 0;
+                font-size: 12px; line-height: 1.4; margin: 0 5px 5px 0;
             }
-            .beacon-product-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+            .beacon-product-chip span {
+                display: inline-block; vertical-align: middle;
+                max-width: calc(100% - 16px);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            }
             .beacon-chip-remove {
+                display: inline-block; vertical-align: middle;
                 cursor: pointer; margin-left: 7px; font-weight: bold;
                 color: #cfe3f5; font-size: 14px; line-height: 1;
             }
