@@ -1656,7 +1656,7 @@ class Beacon_CRM_Integration
                     "postal_code"      => $order->get_billing_postcode(),
                     "country"          => $country_name,
                 ]],
-                "interests" => $this->get_beacon_interests_from_order($order),
+                "interests" => $this->get_beacon_interests_from_order($order) ?: null,
                 "notes"     => 'Updated via woocommerce checkout'
             ],
         ];

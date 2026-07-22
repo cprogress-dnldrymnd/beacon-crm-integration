@@ -99,7 +99,9 @@ Mapping tab), edited through one shared AJAX modal (`ajax_save_course_mapping`).
   `orca_get_training_opt_in_value()`/`orca_get_communications_opt_in_value()` (from the
   Orca Learn plugin) if those functions exist, falling back to reading the raw
   `_wc_other/orca-learn/training-opt-in` and `-communications-opt-in` order meta keys via
-  `order_meta_is_true()` otherwise.
+  `order_meta_is_true()` otherwise. It always returns an array; `get_or_create_person()`
+  coerces an empty result to `null` (`?: null`) before sending it as the `interests` field,
+  since Beacon's API is picky about receiving an empty array here.
 - Every API call is logged via `log_to_db()` as a `beaconcrmlogs` post, with `type`
   (person/payment/training), `api_url`, `args`, `return`, and a derived `status`
   (success/error) — viewable in the WP admin as a custom post list with type/status
@@ -153,10 +155,13 @@ rendered by `render_settings_page()`:
   ancestor for correct positioning when the modal content scrolls. Keep this anchor if
   the modal markup changes.
 - `.beacon-product-chip` (in `#beacon-products-chips`) is deliberately plain
-  `display: inline-block`, not a flex item. An earlier flex + `min-width:0` layout let
-  long variation labels (e.g. a date/time attribute) push the chip past the modal box —
-  flex items don't reliably shrink below their unwrapped content width inside an
-  auto-layout table cell across browsers. Don't reintroduce flex here.
+  `display: inline-block`, not a flex item, with a fixed `max-width: 355px`. An earlier
+  flex + `min-width:0` layout let long variation labels (e.g. a date/time attribute) push
+  the chip past the modal box — flex items don't reliably shrink below their unwrapped
+  content width inside an auto-layout table cell across browsers. Don't reintroduce flex
+  here. The inner label `span` wraps overflow text (no `text-overflow`/`white-space:
+  nowrap`) rather than ellipsis-truncating, so long labels wrap to multiple lines within
+  the fixed-width chip instead of being cut off or overflowing.
 - The WooCommerce product editor's own "Linked Live Courses" field
   (`render_wc_product_fields`) is unrelated to the modal picker rewrite — it still uses
   WooCommerce's native `wc-enhanced-select` (WooCommerce's own select2 wrapper). Same for
