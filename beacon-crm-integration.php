@@ -438,8 +438,10 @@ class Beacon_CRM_Integration
     public function add_admin_menu()
     {
         add_menu_page('Beacon CRM', 'Beacon CRM', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page'], 'dashicons-networking', 58);
-        add_submenu_page('beacon-crm-settings', 'Beacon CRM Settings', 'Settings', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page']);
+        add_submenu_page('beacon-crm-settings', 'API Configuration', 'API Configuration', 'manage_options', 'beacon-crm-settings', [$this, 'render_settings_page']);
         add_submenu_page('beacon-crm-settings', 'Course Mapping', 'Course Mapping', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=mapping');
+        add_submenu_page('beacon-crm-settings', 'Test Integration', 'Test Integration', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=test');
+        add_submenu_page('beacon-crm-settings', 'Bulk Date Sync', 'Bulk Date Sync', 'manage_options', 'admin.php?page=beacon-crm-settings&tab=bulk');
     }
 
     public function register_settings()
